@@ -1,0 +1,21 @@
+from pyspark.context import SparkContext
+from awsglue.context import GlueContext
+from pyspark.sql.functions import col, year, month
+
+sc = SparkContext()
+glueContext = GlueContext(sc)
+spark = glueContext.spark_session
+
+df = spark.read.option("header", True).csv("s3://s3-chand-data-lake-12345/raw/sales/")
+
+df_clean = df.dropDuplicates()
+
+df_clean = df_clean.withColumn("amount", col("amount").cast("double"))
+
+df_transformed = df_clean \
+    .withColumn("year", year(col("order_date"))) \
+    .withColumn("month", month(col("order_date")))
+
+df_transformed.write.mode("overwrite") \
+    .partitionBy("year", "month") \
+    .parquet("s3://s3-chand-data-lake-12345/curated/sales/")

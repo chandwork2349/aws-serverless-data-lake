@@ -1,0 +1,5 @@
+order_id,customer_id,region,product,category,amount,quantity,order_date,payment_method
+ORD001,CUST101,North,Laptop,Electronics,75000,1,2024-01-15,Credit Card
+ORD002,CUST102,South,Mobile,Electronics,25000,2,2024-02-10,UPI
+ORD003,CUST103,West,Headphones,Accessories,3000,3,2024-02-12,Debit Card
+ORD004,CUST104,East,TV,Electronics,55000,1,2024-03-01,Credit Card
