@@ -1,8 +1,11 @@
-# 🚀 AWS Serverless Data Lake
+# 🚀 AWS Serverless Data Lake (Production-Grade Pipeline)
 
-## 📌 Overview
-Built an end-to-end serverless data pipeline using AWS services to process and analyze data.
+Designed and implemented a scalable serverless data engineering pipeline on AWS to process and analyze transactional data.
 
+✅ End-to-end ETL pipeline using AWS Glue (PySpark)
+✅ Partitioned data lake architecture (year, month)
+✅ Optimized Athena performance using Parquet format
+✅ Real-time analytics capability using serverless services
 ---
 
 ## 🧱 Architecture
