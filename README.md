@@ -8,6 +8,13 @@ Designed and implemented a scalable serverless data engineering pipeline on AWS 
 ✅ Real-time analytics capability using serverless services
 ---
 
+## ⚙️ Design Decisions
+
+- Used S3 as data lake for scalability and cost-effectiveness
+- Chose AWS Glue for serverless ETL to avoid cluster management
+- Implemented partitioning (year, month) to reduce Athena query scan
+- Used Parquet columnar format for performance optimization
+  
 ## 🧱 Architecture
 ![Architecture](architecture/architecture.png)
 
