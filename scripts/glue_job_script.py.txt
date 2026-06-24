@@ -1,24 +1,83 @@
+import sys
+import logging
 from pyspark.context import SparkContext
 from awsglue.context import GlueContext
-from pyspark.sql.functions import col, year, month
+from pyspark.sql.functions import col, year, month, trim
+from pyspark.sql.types import DoubleType
 
+# -------------------------------------------
+# Initialize Spark & Glue Context
+# -------------------------------------------
 sc = SparkContext()
 glueContext = GlueContext(sc)
 spark = glueContext.spark_session
 
-# Read data from S3
-df = spark.read.option("header", True).csv("s3://s3-chand-data-lake-12345/raw/sales/")
+# -------------------------------------------
+# Logging Setup
+# -------------------------------------------
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
-# Clean data
-df_clean = df.dropDuplicates()
-df_clean = df_clean.withColumn("amount", col("amount").cast("double"))
+# -------------------------------------------
+# S3 Paths (UPDATE IF BUCKET NAME CHANGES)
+# -------------------------------------------
+RAW_PATH = "s3://s3-chand-data-lake-12345/raw/sales/"
+CURATED_PATH = "s3://s3-chand-data-lake-12345/curated/sales/"
 
-# Transform data
-df_transformed = df_clean \
-    .withColumn("year", year(col("order_date"))) \
-    .withColumn("month", month(col("order_date")))
+try:
+    logger.info("Reading raw data from S3")
 
-# Write data
-df_transformed.write.mode("overwrite") \
-    .partitionBy("year", "month") \
-    .parquet("s3://s3-chand-data-lake-12345/curated/sales/")
+    # -------------------------------------------
+    # Read Raw Data
+    # -------------------------------------------
+    df = spark.read \
+        .option("header", True) \
+        .option("inferSchema", True) \
+        .csv(RAW_PATH)
+
+    logger.info(f"Initial record count: {df.count()}")
+
+    # -------------------------------------------
+    # Data Cleaning
+    # -------------------------------------------
+    logger.info("Cleaning data")
+
+    df_clean = df.dropDuplicates()
+
+    df_clean = df_clean.withColumn("amount", col("amount").cast(DoubleType()))
+
+    df_clean = df_clean.withColumn("region", trim(col("region")))
+    df_clean = df_clean.withColumn("product", trim(col("product")))
+
+    # -------------------------------------------
+    # Data Quality Check
+    # -------------------------------------------
+    if df_clean.count() == 0:
+        raise Exception("Data Quality Failed: Dataset is empty")
+
+    logger.info(f"Cleaned record count: {df_clean.count()}")
+
+    # -------------------------------------------
+    # Transformations
+    # -------------------------------------------
+    logger.info("Adding partition columns")
+
+    df_transformed = df_clean \
+        .withColumn("year", year(col("order_date"))) \
+        .withColumn("month", month(col("order_date")))
+
+    # -------------------------------------------
+    # Write Data to S3
+    # -------------------------------------------
+    logger.info("Writing transformed data to curated layer")
+
+    df_transformed.write \
+        .mode("overwrite") \
+        .partitionBy("year", "month") \
+        .parquet(CURATED_PATH)
+
+    logger.info("ETL Job Completed Successfully ✅")
+
+except Exception as e:
+    logger.error(f"ETL Job Failed ❌: {str(e)}")
+    raise
