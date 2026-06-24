@@ -1,0 +1,14 @@
+
+-- Basic query
+SELECT * FROM sales;
+
+-- Aggregation query
+SELECT year, month, SUM(amount) AS total_sales
+FROM curated_sales
+GROUP BY year, month
+ORDER BY year, month;
+
+-- Region-wise sales
+SELECT region, SUM(amount)
+FROM curated_sales
+GROUP BY region;
