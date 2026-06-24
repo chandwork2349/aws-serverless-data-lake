@@ -1,0 +1,7 @@
+
+{
+  "raw_path": "s3://s3-chand-data-lake-12345/raw/sales/",
+  "curated_path": "s3://s3-chand-data-lake-12345/curated/sales/",
+  "partition_columns": ["year", "month"],
+  "min_records_threshold": 5
+}
