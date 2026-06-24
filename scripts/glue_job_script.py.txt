@@ -6,16 +6,19 @@ sc = SparkContext()
 glueContext = GlueContext(sc)
 spark = glueContext.spark_session
 
+# Read data from S3
 df = spark.read.option("header", True).csv("s3://s3-chand-data-lake-12345/raw/sales/")
 
+# Clean data
 df_clean = df.dropDuplicates()
-
 df_clean = df_clean.withColumn("amount", col("amount").cast("double"))
 
+# Transform data
 df_transformed = df_clean \
     .withColumn("year", year(col("order_date"))) \
     .withColumn("month", month(col("order_date")))
 
+# Write data
 df_transformed.write.mode("overwrite") \
     .partitionBy("year", "month") \
     .parquet("s3://s3-chand-data-lake-12345/curated/sales/")
