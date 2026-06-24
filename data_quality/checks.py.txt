@@ -1,0 +1,8 @@
+def validate_data(df):
+    if df.count() == 0:
+        raise Exception("Empty dataset detected")
+
+    if df.filter("amount < 0").count() > 0:
+        raise Exception("Invalid negative values found")
+
+    print("Data validation passed ✅")

@@ -1,83 +1,78 @@
 import sys
 import logging
+import json
 from pyspark.context import SparkContext
 from awsglue.context import GlueContext
 from pyspark.sql.functions import col, year, month, trim
-from pyspark.sql.types import DoubleType
+from pyspark.sql.types import DoubleType, IntegerType
 
 # -------------------------------------------
-# Initialize Spark & Glue Context
+# Initialize Spark
 # -------------------------------------------
 sc = SparkContext()
 glueContext = GlueContext(sc)
 spark = glueContext.spark_session
 
-# -------------------------------------------
-# Logging Setup
-# -------------------------------------------
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 # -------------------------------------------
-# S3 Paths (UPDATE IF BUCKET NAME CHANGES)
+# Load Config
 # -------------------------------------------
-RAW_PATH = "s3://s3-chand-data-lake-12345/raw/sales/"
-CURATED_PATH = "s3://s3-chand-data-lake-12345/curated/sales/"
+config_path = "s3://s3-chand-data-lake-12345/config/config.json"
+
+config_df = spark.read.text(config_path)
+config_str = "".join([row.value for row in config_df.collect()])
+config = json.loads(config_str)
+
+RAW_PATH = config["raw_path"]
+CURATED_PATH = config["curated_path"]
+MIN_THRESHOLD = config["min_records_threshold"]
 
 try:
-    logger.info("Reading raw data from S3")
+    logger.info("Reading data from S3")
 
-    # -------------------------------------------
-    # Read Raw Data
-    # -------------------------------------------
-    df = spark.read \
-        .option("header", True) \
-        .option("inferSchema", True) \
-        .csv(RAW_PATH)
+    df = spark.read.option("header", True).csv(RAW_PATH)
 
-    logger.info(f"Initial record count: {df.count()}")
+    logger.info(f"Initial count: {df.count()}")
 
     # -------------------------------------------
     # Data Cleaning
     # -------------------------------------------
-    logger.info("Cleaning data")
-
     df_clean = df.dropDuplicates()
 
     df_clean = df_clean.withColumn("amount", col("amount").cast(DoubleType()))
+    df_clean = df_clean.withColumn("quantity", col("quantity").cast(IntegerType()))
 
     df_clean = df_clean.withColumn("region", trim(col("region")))
-    df_clean = df_clean.withColumn("product", trim(col("product")))
 
     # -------------------------------------------
-    # Data Quality Check
+    # Data Quality Checks
     # -------------------------------------------
-    if df_clean.count() == 0:
-        raise Exception("Data Quality Failed: Dataset is empty")
+    count = df_clean.count()
 
-    logger.info(f"Cleaned record count: {df_clean.count()}")
+    if count == 0:
+        raise Exception("No data available")
+
+    if count < MIN_THRESHOLD:
+        logger.warning("Low record count detected")
 
     # -------------------------------------------
     # Transformations
     # -------------------------------------------
-    logger.info("Adding partition columns")
-
     df_transformed = df_clean \
         .withColumn("year", year(col("order_date"))) \
         .withColumn("month", month(col("order_date")))
 
     # -------------------------------------------
-    # Write Data to S3
+    # Write Data
     # -------------------------------------------
-    logger.info("Writing transformed data to curated layer")
-
-    df_transformed.write \
-        .mode("overwrite") \
+    df_transformed.write.mode("overwrite") \
         .partitionBy("year", "month") \
         .parquet(CURATED_PATH)
 
-    logger.info("ETL Job Completed Successfully ✅")
+    logger.info("Pipeline execution successful ✅")
 
 except Exception as e:
-    logger.error(f"ETL Job Failed ❌: {str(e)}")
+    logger.error(f"Pipeline failed ❌: {str(e)}")
     raise
