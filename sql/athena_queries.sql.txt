@@ -1,5 +1,7 @@
--- 1. Monthly Sales Aggregation (Core Query)
-SELECT year, month, SUM(amount) AS total_sales
+-- 1. Monthly Sales Aggregation
+SELECT year,
+       month,
+       SUM(amount) AS total_sales
 FROM curated_sales
 GROUP BY year, month
 ORDER BY year, month;
@@ -23,7 +25,7 @@ ORDER BY revenue DESC;
 SELECT AVG(amount) AS avg_order_value
 FROM curated_sales;
 
--- 5. Revenue Growth Trend
+-- 5. Revenue Growth Trend (Window Function)
 SELECT year,
        month,
        SUM(amount) AS revenue,
@@ -31,7 +33,7 @@ SELECT year,
 FROM curated_sales
 GROUP BY year, month;
 
--- 6. Product Contribution %
+-- 6. Product Contribution Percentage
 SELECT product,
        SUM(amount) AS revenue,
        SUM(amount) * 100.0 / SUM(SUM(amount)) OVER () AS percentage_contribution
@@ -46,3 +48,10 @@ FROM curated_sales
 GROUP BY region
 ORDER BY revenue ASC
 LIMIT 3;
+
+-- 8. Revenue Ranking by Region (ADVANCED)
+SELECT region,
+       SUM(amount) AS revenue,
+       RANK() OVER (ORDER BY SUM(amount) DESC) AS revenue_rank
+FROM curated_sales
+GROUP BY region;
