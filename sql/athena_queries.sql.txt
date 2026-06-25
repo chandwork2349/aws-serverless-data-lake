@@ -1,28 +1,48 @@
-
--- Total sales by month
+-- 1. Monthly Sales Aggregation (Core Query)
 SELECT year, month, SUM(amount) AS total_sales
 FROM curated_sales
 GROUP BY year, month
 ORDER BY year, month;
 
--- Region-wise performance
-SELECT region, COUNT(*) AS total_orders, SUM(amount) AS revenue
+-- 2. Region-wise Performance
+SELECT region,
+       COUNT(*) AS total_orders,
+       SUM(amount) AS revenue
 FROM curated_sales
-GROUP BY region;
+GROUP BY region
+ORDER BY revenue DESC;
 
--- Top products
-SELECT product, SUM(amount) AS revenue
+-- 3. Top Products by Revenue
+SELECT product,
+       SUM(amount) AS revenue
 FROM curated_sales
 GROUP BY product
 ORDER BY revenue DESC;
 
--- Average order value
+-- 4. Average Order Value
 SELECT AVG(amount) AS avg_order_value
 FROM curated_sales;
 
--- Monthly sales trend
-SELECT year, month,
-SUM(amount) AS revenue
+-- 5. Revenue Growth Trend
+SELECT year,
+       month,
+       SUM(amount) AS revenue,
+       LAG(SUM(amount)) OVER (ORDER BY year, month) AS previous_revenue
 FROM curated_sales
-GROUP BY year, month
-ORDER BY year, month;
+GROUP BY year, month;
+
+-- 6. Product Contribution %
+SELECT product,
+       SUM(amount) AS revenue,
+       SUM(amount) * 100.0 / SUM(SUM(amount)) OVER () AS percentage_contribution
+FROM curated_sales
+GROUP BY product
+ORDER BY percentage_contribution DESC;
+
+-- 7. Low Performing Regions
+SELECT region,
+       SUM(amount) AS revenue
+FROM curated_sales
+GROUP BY region
+ORDER BY revenue ASC
+LIMIT 3;
