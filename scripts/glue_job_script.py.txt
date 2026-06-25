@@ -1,23 +1,26 @@
 import sys
-import logging
 import json
+import logging
 from pyspark.context import SparkContext
 from awsglue.context import GlueContext
 from pyspark.sql.functions import col, year, month, trim
 from pyspark.sql.types import DoubleType, IntegerType
 
 # -------------------------------------------
-# Initialize Spark
+# Initialize Spark & Glue Context
 # -------------------------------------------
 sc = SparkContext()
 glueContext = GlueContext(sc)
 spark = glueContext.spark_session
 
+# -------------------------------------------
+# Logging Setup
+# -------------------------------------------
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 # -------------------------------------------
-# Load Config
+# Load Config File
 # -------------------------------------------
 config_path = "s3://s3-chand-data-lake-12345/config/config.json"
 
@@ -30,11 +33,12 @@ CURATED_PATH = config["curated_path"]
 MIN_THRESHOLD = config["min_records_threshold"]
 
 try:
-    logger.info("Reading data from S3")
+    logger.info("Reading raw data from S3")
 
     df = spark.read.option("header", True).csv(RAW_PATH)
 
-    logger.info(f"Initial count: {df.count()}")
+    record_count = df.count()
+    logger.info(f"Initial record count: {record_count}")
 
     # -------------------------------------------
     # Data Cleaning
@@ -43,22 +47,23 @@ try:
 
     df_clean = df_clean.withColumn("amount", col("amount").cast(DoubleType()))
     df_clean = df_clean.withColumn("quantity", col("quantity").cast(IntegerType()))
-
     df_clean = df_clean.withColumn("region", trim(col("region")))
 
     # -------------------------------------------
-    # Data Quality Checks
+    # Data Quality
     # -------------------------------------------
-    count = df_clean.count()
+    cleaned_count = df_clean.count()
 
-    if count == 0:
-        raise Exception("No data available")
+    if cleaned_count == 0:
+        raise Exception("Data Quality Failed: Empty dataset")
 
-    if count < MIN_THRESHOLD:
+    if cleaned_count < MIN_THRESHOLD:
         logger.warning("Low record count detected")
 
+    logger.info(f"Cleaned record count: {cleaned_count}")
+
     # -------------------------------------------
-    # Transformations
+    # Transformation
     # -------------------------------------------
     df_transformed = df_clean \
         .withColumn("year", year(col("order_date"))) \
@@ -67,11 +72,12 @@ try:
     # -------------------------------------------
     # Write Data
     # -------------------------------------------
-    df_transformed.write.mode("overwrite") \
+    df_transformed.write \
+        .mode("overwrite") \
         .partitionBy("year", "month") \
         .parquet(CURATED_PATH)
 
-    logger.info("Pipeline execution successful ✅")
+    logger.info("ETL Pipeline completed successfully ✅")
 
 except Exception as e:
     logger.error(f"Pipeline failed ❌: {str(e)}")
